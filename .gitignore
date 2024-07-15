@@ -1,0 +1,7 @@
+/build
+.gitignore
+jsonSchemas.xml
+modules.xml
+rec.iml
+vcs.xml
+watcherTasks.xml
