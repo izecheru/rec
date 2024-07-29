@@ -5,21 +5,21 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"rec/config"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"rec/config"
+
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 )
-
-const FILEPATH = "./config/reconfig.json"
 
 var Recs [rows][cols]*walk.CheckBox
 var Stats [rows]*walk.Label
@@ -37,10 +37,11 @@ type Data struct {
 
 // TODO if needed those can be loaded in the config as well
 const rows = 24
+
 const cols = 4
 
 var kiproip []string
-var NRKIPRO int
+var NRKIPRO = 0
 var Name []_Name
 var UMDsync = &sync.Mutex{}
 
@@ -329,6 +330,7 @@ func main() {
 							if changesMade {
 								kiproip = conf.KiproIps
 							}
+							NRKIPRO = len(conf.KiproIps)
 						},
 					},
 				},
@@ -628,6 +630,12 @@ func Faster() {
 }
 
 func GetStateLoop() {
+	conf, _ := config.ReadConfig()
+	if NRKIPRO == 0 {
+		NRKIPRO := len(conf.KiproIps)
+		fmt.Println(NRKIPRO)
+	}
+
 	for {
 		if faster {
 			time.Sleep(200 * time.Millisecond)

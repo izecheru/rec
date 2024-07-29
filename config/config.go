@@ -2,16 +2,20 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/lxn/walk"
-	. "github.com/lxn/walk/declarative"
+	"fmt"
 	"log"
 	"os"
+
+	"github.com/lxn/walk"
+	. "github.com/lxn/walk/declarative"
 )
 
 type Config struct {
 	KiproIps []string `json:"kiproip"`
 	// TODO ask razvan if he wants more things added to the config file
 }
+
+var kiprolen int
 
 const FILEPATH = "./config/config.json"
 
@@ -30,6 +34,14 @@ func ReadConfig() (*Config, error) {
 }
 
 func WriteConfig(config Config) error {
+	var filteredKiproIps []string
+	for _, kiproIp := range config.KiproIps {
+		// if we have an empty string we delete that entry
+		if kiproIp != "" {
+			filteredKiproIps = append(filteredKiproIps, kiproIp)
+		}
+	}
+	config.KiproIps = filteredKiproIps
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		log.Fatalf("Error marshaling config: %v", err)
@@ -45,32 +57,29 @@ func WriteConfig(config Config) error {
 func ShowConfigWindow(owner walk.Form) (bool, *Config) {
 	var configWin *walk.MainWindow
 	var saveButton *walk.PushButton
+	var addEntry *walk.PushButton
 
 	conf, err := ReadConfig()
 	if err != nil {
 		log.Fatalf("Error reading config: %v", err)
 	}
 
-	if len(conf.KiproIps) != 21 {
-		log.Fatalf("Expected 21 IP addresses, got %d", len(conf.KiproIps))
-	}
-
 	kiproip := conf.KiproIps
-	originalValues := make([]string, len(kiproip))
+	kiprolen := len(kiproip)
+	originalValues := make([]string, kiprolen)
 	copy(originalValues, kiproip)
-
-	var ipEdits [21]*walk.LineEdit
+	ipEdits := make([]*walk.LineEdit, kiprolen)
 	changesMade := false
 
-	children := make([]Widget, 22) // 21 LineEdits + 1 Save Button
+	children := make([]Widget, kiprolen+2) // 21 LineEdits + 1 Save Button + 1 add entry button
 
-	for i := 0; i < 21; i++ {
+	for i := 0; i < kiprolen; i++ {
 		index := i // capture loop variable
 		children[i] = LineEdit{
 			AssignTo: &ipEdits[index],
 			Text:     originalValues[index],
 			OnTextChanged: func() {
-				for j := 0; j < 21; j++ {
+				for j := 0; j < kiprolen; j++ {
 					if ipEdits[j].Text() != originalValues[j] {
 						changesMade = true
 						break
@@ -81,12 +90,12 @@ func ShowConfigWindow(owner walk.Form) (bool, *Config) {
 		}
 	}
 
-	children[21] = PushButton{
+	children[kiprolen] = PushButton{
 		AssignTo: &saveButton,
 		Text:     "Save",
 		Enabled:  false,
 		OnClicked: func() {
-			for i := 0; i < 21; i++ {
+			for i := 0; i < kiprolen; i++ {
 				conf.KiproIps[i] = ipEdits[i].Text()
 			}
 
@@ -96,6 +105,26 @@ func ShowConfigWindow(owner walk.Form) (bool, *Config) {
 				return
 			}
 			configWin.Close()
+		},
+	}
+
+	children[kiprolen+1] = PushButton{
+		AssignTo: &addEntry,
+		Text:     "Add entry",
+		Enabled:  true,
+		OnClicked: func() {
+			kiprolen += 1
+			ipEdits := make([]walk.LineEdit, kiprolen)
+			newKiproips := make([]string, kiprolen)
+			copy(newKiproips, kiproip)
+			kiproip = newKiproips
+			fmt.Println("added 1 more ip to the list %v", len(ipEdits))
+
+			err := WriteConfig(*conf)
+			if err != nil {
+				log.Fatalf("Error writing config: %v", err)
+				return
+			}
 		},
 	}
 
@@ -109,8 +138,4 @@ func ShowConfigWindow(owner walk.Form) (bool, *Config) {
 
 	configWin.Run()
 	return changesMade, conf
-}
-
-func main() {
-	ShowConfigWindow(nil)
 }
